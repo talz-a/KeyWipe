@@ -9,13 +9,9 @@ class KeyboardCleaningViewModel: ObservableObject {
     private var runLoopSource: CFRunLoopSource?
     
     func requestTrust() {
-        let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String : true]
-        let accessEnabled = AXIsProcessTrustedWithOptions(options)
-        if !accessEnabled {
-           print("Access Not Enabled")
-        } else {
-           print("Access Granted")
-        }
+        let prompt = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+        let options: NSDictionary = [prompt: true]
+        AXIsProcessTrustedWithOptions(options)
     }
     
     func checkTrust() {
@@ -27,7 +23,6 @@ class KeyboardCleaningViewModel: ObservableObject {
     }
     
     private var allKeyMask: CGEventMask {
-        // keyDown(10), keyUp(11), flagsChanged(12), systemDefined(14)
         let codes = [CGEventType.keyDown, .keyUp, .flagsChanged]
             .map(\.rawValue) + [14]
         return CGEventMask(codes.reduce(0) { $0 | (1 << $1) })
@@ -69,7 +64,6 @@ struct ContentView: View {
             Text("KeyWipe")
                 .font(.title2)
                 .bold()
-
             if !vm.isTrusted {
                 HStack(spacing: 12) {
                     Button(action: vm.requestTrust) {
@@ -80,20 +74,19 @@ struct ContentView: View {
                     }
                 }
             } else {
-                Toggle(isOn: $vm.isCleaning) {
-                    Label(vm.isCleaning ? "Cleaning On" : "Cleaning Off",
-                          systemImage: vm.isCleaning ? "lock.open.fill" : "lock.fill")
+                VStack(spacing: 12) {
+                    Toggle(isOn: $vm.isCleaning) {
+                        Label(vm.isCleaning ? "Cleaning On" : "Cleaning Off",
+                              systemImage: vm.isCleaning ? "lock.open.fill" : "lock.fill")
+                    }
+                    .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+                    Button(action: { NSApplication.shared.terminate(nil) }) {
+                        Label("Close App", systemImage: "xmark")
+                    }
                 }
-                .toggleStyle(SwitchToggleStyle(tint: .accentColor))
             }
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(NSColor.windowBackgroundColor))
-        )
-        .shadow(radius: 4)
-        .frame(minWidth: 240, minHeight: 140)
     }
 }
 
