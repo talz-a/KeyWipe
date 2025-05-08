@@ -1,69 +1,109 @@
 import SwiftUI
+import ApplicationServices
+
+@MainActor
+class KeyboardCleaningViewModel: ObservableObject {
+    @Published var isTrusted = AXIsProcessTrusted()
+    @Published var isCleaning = false { didSet { updateEventTap() } }
+    private var tap: CFMachPort?
+    private var runLoopSource: CFRunLoopSource?
+    
+    func requestTrust() {
+        let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String : true]
+        let accessEnabled = AXIsProcessTrustedWithOptions(options)
+        if !accessEnabled {
+           print("Access Not Enabled")
+        } else {
+           print("Access Granted")
+        }
+    }
+    
+    func checkTrust() {
+        isTrusted = AXIsProcessTrusted()
+    }
+    
+    private func updateEventTap() {
+        isCleaning ? startTap() : stopTap()
+    }
+    
+    private var allKeyMask: CGEventMask {
+        // keyDown(10), keyUp(11), flagsChanged(12), systemDefined(14)
+        let codes = [CGEventType.keyDown, .keyUp, .flagsChanged]
+            .map(\.rawValue) + [14]
+        return CGEventMask(codes.reduce(0) { $0 | (1 << $1) })
+    }
+    
+    private func startTap() {
+        guard tap == nil else { return }
+        guard let newTap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: allKeyMask,
+            callback: { _, _, _, _ in nil },
+            userInfo: nil
+        ) else { return }
+        tap = newTap
+        runLoopSource = CFMachPortCreateRunLoopSource(nil, newTap, 0)
+        CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+        CGEvent.tapEnable(tap: newTap, enable: true)
+    }
+    
+    private func stopTap() {
+        guard let existingTap = tap,
+              let existingSource = runLoopSource
+        else { return }
+        CGEvent.tapEnable(tap: existingTap, enable: false)
+        CFRunLoopRemoveSource(CFRunLoopGetMain(), existingSource, .commonModes)
+        CFMachPortInvalidate(existingTap)
+        tap = nil
+        runLoopSource = nil
+    }
+}
+
+struct ContentView: View {
+    @StateObject private var vm = KeyboardCleaningViewModel()
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            Text("KeyWipe")
+                .font(.title2)
+                .bold()
+
+            if !vm.isTrusted {
+                HStack(spacing: 12) {
+                    Button(action: vm.requestTrust) {
+                        Label("Request Access", systemImage: "lock.shield")
+                    }
+                    Button(action: vm.checkTrust) {
+                        Label("Re-check", systemImage: "arrow.clockwise")
+                    }
+                }
+            } else {
+                Toggle(isOn: $vm.isCleaning) {
+                    Label(vm.isCleaning ? "Cleaning On" : "Cleaning Off",
+                          systemImage: vm.isCleaning ? "lock.open.fill" : "lock.fill")
+                }
+                .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(NSColor.windowBackgroundColor))
+        )
+        .shadow(radius: 4)
+        .frame(minWidth: 240, minHeight: 140)
+    }
+}
 
 @main
 struct KeyWipeApp: App {
-
     var body: some Scene {
-        WindowGroup {
-            ContentView()
-                .onAppear {
-                    startKeyCapture()
-                }
-        }
+        WindowGroup { ContentView() }
     }
 }
 
-func startKeyCapture() {
-    guard AXIsProcessTrusted() else {
-        print("App is not trusted. Please grant Accessibility permissions.")
-        return
-    }
-
-    guard let tap = CGEvent.tapCreate(
-        tap: .cgSessionEventTap,
-        place: .headInsertEventTap,
-        options: .defaultTap,
-        eventsOfInterest: CGEventMask(1 << CGEventType.keyDown.rawValue),
-        callback: handleKeyDown,
-        userInfo: nil
-    ) else {
-        print("Failed to create event tap.")
-        return
-    }
-
-    installEventTap(tap)
-
-    print("Key capture started.")
-}
-
-private var retainedTap: CFMachPort?
-
-func installEventTap(_ tap: CFMachPort) {
-    retainedTap = tap
-    let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-    CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-    CGEvent.tapEnable(tap: tap, enable: true)
-}
-
-func handleKeyDown(
-    proxy: CGEventTapProxy,
-    type: CGEventType,
-    cgEvent: CGEvent,
-    userInfo: UnsafeMutableRawPointer?
-) -> Unmanaged<CGEvent>? {
-
-    guard let nsEvent = NSEvent(cgEvent: cgEvent),
-          nsEvent.type == .keyDown else {
-        return Unmanaged.passUnretained(cgEvent)
-    }
-
-    let cmdPressed = nsEvent.modifierFlags.contains(.command)
-    let pressedChar = nsEvent.charactersIgnoringModifiers?.lowercased() ?? ""
-
-    if cmdPressed && pressedChar == "h" {
-        print("Command+H pressed")
-        return nil
-    }
-
-    return Unmanaged.passUnretained(cgEvent)
+#Preview {
+    ContentView()
 }
