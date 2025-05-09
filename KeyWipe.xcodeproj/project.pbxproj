@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		8F977A522DC40F03008087D2 /* KeyWipe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KeyWipe.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8F977A522DC40F03008087D2 /* KeyWipe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = KeyWipe.app; path = /Users/talal/Programming/KeyWipe/build/Debug/KeyWipe.app; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -33,16 +33,7 @@
 			isa = PBXGroup;
 			children = (
 				8F977A542DC40F03008087D2 /* KeyWipe */,
-				8F977A532DC40F03008087D2 /* Products */,
 			);
-			sourceTree = "<group>";
-		};
-		8F977A532DC40F03008087D2 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				8F977A522DC40F03008087D2 /* KeyWipe.app */,
-			);
-			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -95,7 +86,7 @@
 			mainGroup = 8F977A492DC40F03008087D2;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 8F977A532DC40F03008087D2 /* Products */;
+			productRefGroup = 8F977A492DC40F03008087D2;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (

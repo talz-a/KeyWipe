@@ -5,9 +5,15 @@ import ApplicationServices
 class KeyboardCleaningViewModel: ObservableObject {
     @Published var isTrusted = AXIsProcessTrusted()
     @Published var isCleaning = false { didSet { updateEventTap() } }
+    
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
-    
+    private var allKeyMask: CGEventMask {
+        let codes = [CGEventType.keyDown, .keyUp, .flagsChanged]
+            .map(\.rawValue) + [14]
+        return CGEventMask(codes.reduce(0) { $0 | (1 << $1) })
+    }
+
     func requestTrust() {
         let prompt = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
         let options: NSDictionary = [prompt: true]
@@ -20,12 +26,6 @@ class KeyboardCleaningViewModel: ObservableObject {
     
     private func updateEventTap() {
         isCleaning ? startTap() : stopTap()
-    }
-    
-    private var allKeyMask: CGEventMask {
-        let codes = [CGEventType.keyDown, .keyUp, .flagsChanged]
-            .map(\.rawValue) + [14]
-        return CGEventMask(codes.reduce(0) { $0 | (1 << $1) })
     }
     
     private func startTap() {
@@ -90,10 +90,20 @@ struct ContentView: View {
     }
 }
 
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        return true
+    }
+}
+
 @main
 struct KeyWipeApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    
     var body: some Scene {
         WindowGroup { ContentView() }
+            .windowLevel(.floating)
+            .windowResizability(.contentSize)
     }
 }
 
