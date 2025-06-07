@@ -1,4 +1,6 @@
 import SwiftUI
+import CoreGraphics
+import AppKit
 
 @MainActor
 class KeyboardCleaningViewModel: ObservableObject {
@@ -19,15 +21,30 @@ class KeyboardCleaningViewModel: ObservableObject {
         let options: NSDictionary = [prompt: true]
         AXIsProcessTrustedWithOptions(options)
     }
-
+    
     func checkTrust() {
         isTrusted = AXIsProcessTrusted()
     }
 
     private func updateEventTap() {
-        isCleaning ? startTap() : stopTap()
+        if isCleaning {
+            startTap()
+            moveMouse()
+        } else {
+            stopTap()
+        }
     }
-
+    
+    private func moveMouse() {
+        let mouseLocation = NSEvent.mouseLocation
+        if let screen = NSScreen.main {
+            let screenHeight = screen.frame.height
+            let convertedY = screenHeight - mouseLocation.y
+            let newMouseLocation = CGPoint(x: mouseLocation.x - 200, y: convertedY)
+            CGDisplayMoveCursorToPoint(CGMainDisplayID(), newMouseLocation)
+        }
+    }
+    
     private func startTap() {
         guard tap == nil else { return }
         guard
