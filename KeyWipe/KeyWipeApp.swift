@@ -93,40 +93,45 @@ struct ContentView: View {
                     .scaledToFit()
                     .frame(width: 100, height: 100)
                     .accessibilityHidden(true)
-                if !vm.isTrusted {
+                ZStack {
                     VStack(spacing: 16) {
-                        Button {
-                            vm.requestTrust()
-                        } label: {
-                            Label(
-                                "Request Accessibility Access",
-                                systemImage: "lock.shield"
+                        if !vm.isTrusted {
+                            Button {
+                                vm.requestTrust()
+                            } label: {
+                                Label(
+                                    "Request Accessibility Access",
+                                    systemImage: "lock.shield"
+                                )
+                            }
+                            Button(
+                                "Re-check Access",
+                                systemImage: "arrow.clockwise",
+                                action: vm.refreshTrustStatus
                             )
+                        } else {
+                            Toggle(isOn: $vm.isCleaning) {
+                                Label(
+                                    vm.isCleaning
+                                        ? "Cleaning Mode On" : "Cleaning Mode Off",
+                                    systemImage: vm.isCleaning
+                                        ? "lock.open.fill" : "lock.fill"
+                                )
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .toggleStyle(.switch)
+                            .padding(.top, 8)
+                            .frame(width: 200, alignment: .leading)
+
+                            Button("Quit App", systemImage: "xmark") {
+                                NSApplication.shared.terminate(nil)
+                            }
+                            .keyboardShortcut(.cancelAction)
                         }
-                        Button(
-                            "Re-check Access",
-                            systemImage: "arrow.clockwise",
-                            action: vm.refreshTrustStatus
-                        )
                     }
-                } else {
-                    VStack(spacing: 16) {
-                        Toggle(isOn: $vm.isCleaning) {
-                            Label(
-                                vm.isCleaning
-                                    ? "Cleaning Mode On" : "Cleaning Mode Off",
-                                systemImage: vm.isCleaning
-                                    ? "lock.open.fill" : "lock.fill"
-                            )
-                        }
-                        .toggleStyle(.switch)
-                        .padding(.top, 8)
-                        Button("Quit App", systemImage: "xmark") {
-                            NSApplication.shared.terminate(nil)
-                        }
-                        .keyboardShortcut(.cancelAction)
-                    }
+                    .frame(width: 250)
                 }
+                .frame(maxWidth: 200, maxHeight: 200)
             }
             .padding(24)
         }
@@ -156,4 +161,8 @@ struct KeyWipeApp: App {
         .windowLevel(.floating)
         .windowResizability(.contentSize)
     }
+}
+
+#Preview {
+    ContentView()
 }
