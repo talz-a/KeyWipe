@@ -1,18 +1,20 @@
-import SwiftUI
-import CoreGraphics
 import AppKit
+import CoreGraphics
+import SwiftUI
 
-@MainActor
-class KeyboardCleaningViewModel: ObservableObject {
-    @Published var isTrusted = AXIsProcessTrusted()
-    @Published var isCleaning = false { didSet { updateEventTap() } }
+@Observable
+class KeyboardCleaningViewModel {
+    var isTrusted = AXIsProcessTrusted()
+    var isCleaning = false {
+        didSet { updateEventTap() }
+    }
 
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
+
     private var allKeyMask: CGEventMask {
         let codes =
-            [CGEventType.keyDown, .keyUp, .flagsChanged]
-            .map(\.rawValue) + [14]
+            [CGEventType.keyDown, .keyUp, .flagsChanged].map(\.rawValue) + [14]
         return CGEventMask(codes.reduce(0) { $0 | (1 << $1) })
     }
 
@@ -21,8 +23,8 @@ class KeyboardCleaningViewModel: ObservableObject {
         let options: NSDictionary = [prompt: true]
         AXIsProcessTrustedWithOptions(options)
     }
-    
-    func checkTrust() {
+
+    func refreshTrustStatus() {
         isTrusted = AXIsProcessTrusted()
     }
 
@@ -34,17 +36,20 @@ class KeyboardCleaningViewModel: ObservableObject {
             stopTap()
         }
     }
-    
+
     private func moveMouse() {
         let mouseLocation = NSEvent.mouseLocation
         if let screen = NSScreen.main {
             let screenHeight = screen.frame.height
             let convertedY = screenHeight - mouseLocation.y
-            let newMouseLocation = CGPoint(x: mouseLocation.x - 200, y: convertedY)
+            let newMouseLocation = CGPoint(
+                x: mouseLocation.x - 200,
+                y: convertedY
+            )
             CGDisplayMoveCursorToPoint(CGMainDisplayID(), newMouseLocation)
         }
     }
-    
+
     private func startTap() {
         guard tap == nil else { return }
         guard
@@ -64,9 +69,9 @@ class KeyboardCleaningViewModel: ObservableObject {
     }
 
     private func stopTap() {
-        guard let existingTap = tap,
-            let existingSource = runLoopSource
-        else { return }
+        guard let existingTap = tap, let existingSource = runLoopSource else {
+            return
+        }
         CGEvent.tapEnable(tap: existingTap, enable: false)
         CFRunLoopRemoveSource(CFRunLoopGetMain(), existingSource, .commonModes)
         CFMachPortInvalidate(existingTap)
@@ -76,76 +81,79 @@ class KeyboardCleaningViewModel: ObservableObject {
 }
 
 struct ContentView: View {
-    @StateObject private var vm = KeyboardCleaningViewModel()
+    @State private var vm = KeyboardCleaningViewModel()
 
     var body: some View {
         VStack(spacing: 24) {
             Text("KeyWipe")
-                .font(.title)
-                .bold()
-            HStack(alignment: .center, spacing: 24) {
+                .font(.largeTitle.bold())
+            HStack(spacing: 24) {
                 Image("AppIconLarge")
                     .resizable()
                     .scaledToFit()
                     .frame(width: 100, height: 100)
+                    .accessibilityHidden(true)
                 if !vm.isTrusted {
                     VStack(spacing: 16) {
-                        Button(action: vm.requestTrust) {
-                            Label("Request Access", systemImage: "lock.shield")
-                                .frame(maxWidth: .infinity)
+                        Button {
+                            vm.requestTrust()
+                        } label: {
+                            Label(
+                                "Request Accessibility Access",
+                                systemImage: "lock.shield"
+                            )
                         }
-                        Button(action: vm.checkTrust) {
-                            Label("Re-check", systemImage: "arrow.clockwise")
-                                .frame(maxWidth: .infinity)
-                        }
+                        Button(
+                            "Re-check Access",
+                            systemImage: "arrow.clockwise",
+                            action: vm.refreshTrustStatus
+                        )
                     }
                 } else {
                     VStack(spacing: 16) {
                         Toggle(isOn: $vm.isCleaning) {
                             Label(
-                                vm.isCleaning ? "Cleaning On" : "Cleaning Off",
+                                vm.isCleaning
+                                    ? "Cleaning Mode On" : "Cleaning Mode Off",
                                 systemImage: vm.isCleaning
                                     ? "lock.open.fill" : "lock.fill"
                             )
-                            .font(.title2)
-                            .frame(minWidth: 160, alignment: .leading)
                         }
-                        .toggleStyle(SwitchToggleStyle(tint: .blue))
-                        .padding()
-                        Button(action: { NSApplication.shared.terminate(nil) })
-                        {
-                            Label("Close App", systemImage: "xmark")
+                        .toggleStyle(.switch)
+                        .padding(.top, 8)
+                        Button("Quit App", systemImage: "xmark") {
+                            NSApplication.shared.terminate(nil)
                         }
+                        .keyboardShortcut(.cancelAction)
                     }
                 }
             }
             .padding(24)
         }
-    }
-}
+        .padding()
+        .frame(width: 500, height: 200)
+        .task {
+            vm.refreshTrustStatus()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: NSApplication.didBecomeActiveNotification
+            )
+        ) { _ in
+            vm.refreshTrustStatus()
+        }
 
-class AppDelegate: NSObject, NSApplicationDelegate {
-    func applicationShouldTerminateAfterLastWindowClosed(
-        _ sender: NSApplication
-    ) -> Bool {
-        return true
     }
 }
 
 @main
 struct KeyWipeApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-
     var body: some Scene {
         WindowGroup {
-            ContentView().frame(width: 500, height: 200)
+            ContentView()
         }
-        .windowLevel(.floating)
         .windowStyle(.hiddenTitleBar)
+        .windowLevel(.floating)
         .windowResizability(.contentSize)
     }
-}
-
-#Preview {
-    ContentView()
 }
