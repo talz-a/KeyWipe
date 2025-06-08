@@ -3,7 +3,7 @@ import CoreGraphics
 import SwiftUI
 
 @Observable
-class KeyboardCleaningViewModel {
+class KeyboardCleaner {
     var isTrusted = AXIsProcessTrusted()
     var isCleaning = false {
         didSet { updateEventTap() }
@@ -43,8 +43,8 @@ class KeyboardCleaningViewModel {
             let screenHeight = screen.frame.height
             let convertedY = screenHeight - mouseLocation.y
             let newMouseLocation = CGPoint(
-                x: mouseLocation.x - 200,
-                y: convertedY
+                x: mouseLocation.x,
+                y: convertedY - 100
             )
             CGDisplayMoveCursorToPoint(CGMainDisplayID(), newMouseLocation)
         }
@@ -81,62 +81,82 @@ class KeyboardCleaningViewModel {
 }
 
 struct ContentView: View {
-    @State private var vm = KeyboardCleaningViewModel()
+    @State private var vm = KeyboardCleaner()
+    @State private var imageScaled = false
 
     var body: some View {
-        VStack(spacing: 24) {
-            Text("KeyWipe")
-                .font(.largeTitle.bold())
-            HStack(spacing: 24) {
-                Image("AppIconLarge")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 100, height: 100)
-                    .accessibilityHidden(true)
-                ZStack {
-                    VStack(spacing: 16) {
-                        if !vm.isTrusted {
-                            Button {
-                                vm.requestTrust()
-                            } label: {
-                                Label(
-                                    "Request Accessibility Access",
-                                    systemImage: "lock.shield"
-                                )
-                            }
-                            Button(
-                                "Re-check Access",
-                                systemImage: "arrow.clockwise",
-                                action: vm.refreshTrustStatus
-                            )
-                        } else {
-                            Toggle(isOn: $vm.isCleaning) {
-                                Label(
-                                    vm.isCleaning
-                                        ? "Cleaning Mode On" : "Cleaning Mode Off",
-                                    systemImage: vm.isCleaning
-                                        ? "lock.open.fill" : "lock.fill"
-                                )
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .toggleStyle(.switch)
-                            .padding(.top, 8)
-                            .frame(width: 200, alignment: .leading)
-
-                            Button("Quit App", systemImage: "xmark") {
-                                NSApplication.shared.terminate(nil)
-                            }
-                            .keyboardShortcut(.cancelAction)
-                        }
-                    }
-                    .frame(width: 250)
+        VStack(spacing: 16) {
+            Image("AppIconLarge")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 100, height: 100)
+                .accessibilityHidden(true)
+                .padding(.top, 20)
+                .scaleEffect(imageScaled ? 1.0 : 0.6)
+                .animation(
+                    .spring(response: 0.5, dampingFraction: 0.6),
+                    value: imageScaled
+                )
+                .onAppear {
+                    imageScaled = true
                 }
-                .frame(maxWidth: 200, maxHeight: 200)
+            Text("KeyWipe")
+                .font(.system(.largeTitle, design: .rounded).bold())
+            ZStack {
+                VStack(spacing: 20) {
+                    if !vm.isTrusted {
+                        Button(
+                            action: {
+                                vm.requestTrust()
+                            },
+                            label: {
+                                Text("Start")
+                                    .font(.system(size: 20, design: .rounded))
+                                    .padding(.horizontal, 10)
+                            }
+                        )
+                        .buttonStyle(.bordered)
+                        .clipShape(Capsule())
+                    } else {
+                        Toggle(isOn: $vm.isCleaning) {
+                            Label(
+                                vm.isCleaning
+                                    ? "Cleaning On" : "Cleaning Off",
+                                systemImage: vm.isCleaning
+                                    ? "lock.open.fill" : "lock.fill"
+                            )
+                        }
+                        .toggleStyle(.switch)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        Button(
+                            action: {
+                                NSApplication.shared.terminate(nil)
+                            },
+                            label: {
+                                Label {
+                                    Text("Quit App")
+                                        .font(
+                                            .system(size: 15, design: .rounded)
+                                        )
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 2)
+                                } icon: {
+                                    Image(systemName: "xmark")
+                                }
+                            }
+                        )
+                        .buttonStyle(.bordered)
+                        .clipShape(Capsule())
+                        .keyboardShortcut(.cancelAction)
+                    }
+                }
+                .frame(width: 250)
             }
-            .padding(24)
+            .frame(maxWidth: 200, maxHeight: 200)
+            .padding(15)
         }
         .padding()
-        .frame(width: 500, height: 200)
+        .frame(width: 250, height: 300)
         .task {
             vm.refreshTrustStatus()
         }
